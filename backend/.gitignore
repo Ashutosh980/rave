@@ -1,0 +1,5 @@
+node_modules/
+storage/videos/*
+!storage/videos/.gitkeep
+.env
+*.log
