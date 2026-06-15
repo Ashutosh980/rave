@@ -4,6 +4,7 @@ class SocketEvents {
   static const roomState = 'room_state';
   static const participantJoined = 'participant_joined';
   static const participantLeft = 'participant_left';
+  static const participantOffline = 'participant_offline';
   static const participantReconnected = 'participant_reconnected';
 
   static const syncPlay = 'sync_play';

@@ -120,6 +120,9 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
     state = state.copyWith(isUploading: true, clearError: true);
 
     try {
+      // Verify room still exists on server before large upload
+      await _api.getRoom(roomId);
+
       final videoUrl = await _api.uploadVideo(roomId, file);
       final resolved = _api.resolveVideoUrl(videoUrl);
 
@@ -158,6 +161,7 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
     _socket.on(SocketEvents.roomState, _onRoomState);
     _socket.on(SocketEvents.participantJoined, _onParticipantJoined);
     _socket.on(SocketEvents.participantLeft, _onParticipantLeft);
+    _socket.on(SocketEvents.participantOffline, _onParticipantOffline);
     _socket.on(SocketEvents.participantReconnected, _onParticipantReconnected);
     _socket.on(SocketEvents.playbackUpdate, _onPlaybackUpdate);
     _socket.on(SocketEvents.chatMessage, _onChatMessage);
@@ -169,6 +173,7 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
     if (!_listenersRegistered) return;
     _socket.off(SocketEvents.roomState);
     _socket.off(SocketEvents.participantLeft);
+    _socket.off(SocketEvents.participantOffline);
     _socket.off(SocketEvents.participantJoined);
     _socket.off(SocketEvents.participantReconnected);
     _socket.off(SocketEvents.playbackUpdate);
@@ -202,6 +207,19 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
   }
 
   void _onParticipantLeft(dynamic data) {
+    if (data is! Map || state.roomState == null) return;
+    final id = data['participantId'] as String;
+    final updated = state.roomState!.participants.where((p) => p.id != id).toList();
+    final count = data['participantCount'] as int? ?? updated.length;
+    state = state.copyWith(
+      roomState: state.roomState!.copyWith(
+        participants: updated,
+        participantCount: count,
+      ),
+    );
+  }
+
+  void _onParticipantOffline(dynamic data) {
     if (data is! Map || state.roomState == null) return;
     final id = data['participantId'] as String;
     final updated = state.roomState!.participants.where((p) => p.id != id).toList();

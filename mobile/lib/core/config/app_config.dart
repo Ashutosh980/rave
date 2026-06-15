@@ -19,12 +19,13 @@ class AppConfig {
   static const Duration driftCheckInterval = Duration(seconds: 2);
 
   static String resolveServerUrl(String? savedUrl) {
+    // Baked-in deploy URL wins (distributed APK builds)
+    if (compileTimeServerUrl.isNotEmpty) {
+      return _normalize(compileTimeServerUrl);
+    }
     final saved = savedUrl?.trim();
     if (saved != null && saved.isNotEmpty) {
       return _normalize(saved);
-    }
-    if (compileTimeServerUrl.isNotEmpty) {
-      return _normalize(compileTimeServerUrl);
     }
     return emulatorDefault;
   }

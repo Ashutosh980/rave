@@ -1,10 +1,12 @@
 const {
   joinRoom,
   leaveRoom,
+  markParticipantOffline,
   bindSocket,
   addChatMessage,
   serializeRoom,
   getRoom,
+  countConnected,
 } = require('../services/roomService');
 
 /** socketId -> { roomId, participantId, username } */
@@ -53,12 +55,12 @@ function registerSocketHandlers(io, socket) {
           username: participant.username,
           joinedAt: participant.joinedAt,
         },
-        participantCount: room.participants.size,
+        participantCount: countConnected(room),
       });
     } else {
       socket.to(roomId).emit('participant_reconnected', {
         participantId: participant.id,
-        participantCount: room.participants.size,
+        participantCount: countConnected(room),
       });
     }
 
@@ -125,13 +127,13 @@ function registerSocketHandlers(io, socket) {
     const ctx = socketRegistry.get(socket.id);
     if (!ctx) return;
 
-    const result = leaveRoom(ctx.roomId, ctx.participantId);
+    const result = markParticipantOffline(ctx.roomId, ctx.participantId);
     socketRegistry.delete(socket.id);
 
-    if (result?.participant && result.room) {
-      socket.to(ctx.roomId).emit('participant_left', {
+    if (result?.room) {
+      socket.to(ctx.roomId).emit('participant_offline', {
         participantId: ctx.participantId,
-        participantCount: result.room.participants.size,
+        participantCount: countConnected(result.room),
       });
     }
   });

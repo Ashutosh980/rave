@@ -17,6 +17,7 @@
 # Backend uploaded videos
 backend/storage/videos/*
 !backend/storage/videos/.gitkeep
+backend/storage/rooms.json
 
 # Flutter / mobile
 mobile/.dart_tool/
