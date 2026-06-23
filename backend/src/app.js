@@ -10,6 +10,21 @@ function createApp() {
   app.use(cors());
   app.use(express.json());
 
+  app.get('/', (_req, res) => {
+    res.json({
+      name: 'Rave API',
+      status: 'ok',
+      message: 'Backend is running. Use the Rave mobile app to create or join a room.',
+      health: '/health',
+      docs: {
+        createRoom: 'POST /api/rooms',
+        getRoom: 'GET /api/rooms/:id',
+        uploadVideo: 'POST /api/rooms/:id/video',
+        streamVideo: 'GET /api/videos/:roomId',
+      },
+    });
+  });
+
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: Date.now() });
   });
