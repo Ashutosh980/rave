@@ -137,19 +137,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 24),
               TextField(
                 controller: _serverUrlController,
-                decoration: InputDecoration(
-                  labelText: 'Server URL',
-                  hintText: serverConfig.maybeWhen(
-                    data: (url) => url,
-                    orElse: () => 'https://your-server.com',
-                  ),
-                  helperText: 'Same for everyone using the app',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.save),
-                    onPressed: _saveServerUrl,
-                    tooltip: 'Save server URL',
-                  ),
-                ),
+                readOnly: true,
+                // decoration: InputDecoration(
+                //   labelText: 'Server URL',
+                //   hintText: serverConfig.maybeWhen(
+                //     data: (url) => url,
+                //     orElse: () => 'https://your-server.com',
+                //   ),
+                //   helperText: 'Same for everyone using the app',
+                //   suffixIcon: IconButton(
+                //     icon: const Icon(Icons.save),
+                //     onPressed: _saveServerUrl,
+                //     tooltip: 'Save server URL',
+                //   ),
+                // ),
                 keyboardType: TextInputType.url,
                 textInputAction: TextInputAction.next,
               ),

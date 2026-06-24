@@ -10,7 +10,8 @@ class AppConfig {
   static const String prefsServerUrlKey = 'server_url';
 
   /// Emulator fallback when nothing is configured.
-  static const String emulatorDefault = 'http://10.0.2.2:3000';
+  static const String emulatorDefault = 'https://rave-production-40dc.up.railway.app';
+  //'http://10.0.2.2:3000';
 
   /// Resync participant playback when drift exceeds this threshold.
   static const int driftThresholdMs = 500;
