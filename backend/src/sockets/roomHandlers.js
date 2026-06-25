@@ -83,15 +83,29 @@ function registerSocketHandlers(io, socket) {
 
     if (!roomId || !participantId) return;
 
+    const room = getRoom(roomId);
+    const wasLiveStream = room?.liveStream?.active && room?.hostId === participantId;
+
     const result = leaveRoom(roomId, participantId);
     socket.leave(roomId);
     socketRegistry.delete(socket.id);
 
-    if (result?.participant) {
+    if (result?.participant && result.room) {
       socket.to(roomId).emit('participant_left', {
         participantId,
-        participantCount: result.room?.participants.size ?? 0,
+        participantCount: countConnected(result.room),
       });
+
+      if (result.hostChanged) {
+        io.to(roomId).emit('host_changed', {
+          hostId: result.room.hostId,
+          hostUsername: result.room.hostUsername,
+        });
+      }
+
+      if (wasLiveStream) {
+        io.to(roomId).emit('live_stream_ended', { hostId: participantId });
+      }
     }
   });
 

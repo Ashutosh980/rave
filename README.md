@@ -53,7 +53,7 @@ flutter run
 For a **physical device**, pass your machine's LAN IP:
 
 ```bash
-flutter run --dart-define=API_BASE_URL=http://192.168.1.x:3000 --dart-define=SOCKET_URL=http://192.168.1.x:3000
+flutter run --dart-define=API_BASE_URL=http://192.168.1.x:3000
 ```
 
 Android emulator uses `10.0.2.2:3000` by default (host machine localhost).
@@ -82,15 +82,22 @@ curl -I -H "Range: bytes=0-1023" http://localhost:3000/api/videos/ROOM_ID
 - Emit `chat_message` with `{ content }`
 
 ### Milestone 4 — End-to-end app
+See [`docs/E2E_TEST.md`](docs/E2E_TEST.md) for the full two-device checklist.
+
 1. Start backend (`npm run dev`)
 2. Run Flutter on emulator or device
 3. Device A: Create room → upload video → play/pause/seek
 4. Device B: Join with room ID → verify sync within 500ms
 5. Send chat messages on both devices
 
+### Backend unit tests
+```bash
+cd backend && npm test
+```
+
 ## Phase 2 TODOs (in code)
 
-- WebRTC camera streams (signaling handlers stubbed in `backend/src/sockets/index.js`)
+- ~~WebRTC camera streams~~ — MVP implemented (camera + screen share, mesh P2P)
 - FFmpeg HLS transcoding for adaptive bitrate
 - S3 / cloud video storage
 - Redis for multi-instance room state

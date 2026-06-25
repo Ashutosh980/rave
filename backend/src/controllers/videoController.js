@@ -42,6 +42,15 @@ function uploadVideoHandler(req, res) {
     return res.status(404).json({ error: 'ROOM_NOT_FOUND', message: 'Room not found' });
   }
 
+  const participantId = req.headers['x-participant-id'];
+  if (!participantId || participantId !== room.hostId) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    return res.status(403).json({
+      error: 'NOT_HOST',
+      message: 'Only the room host can upload video',
+    });
+  }
+
   if (!req.file) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'video file is required' });
   }

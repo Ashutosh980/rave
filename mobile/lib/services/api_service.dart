@@ -50,11 +50,16 @@ class ApiService {
     throw _parseError(response);
   }
 
-  Future<UploadVideoResponse> uploadVideo(String roomId, File videoFile) async {
+  Future<UploadVideoResponse> uploadVideo(
+    String roomId,
+    File videoFile, {
+    required String participantId,
+  }) async {
     final request = http.MultipartRequest(
       'POST',
       _uri('/api/rooms/$roomId/video'),
     );
+    request.headers['X-Participant-Id'] = participantId;
     request.files.add(
       await http.MultipartFile.fromPath('video', videoFile.path),
     );

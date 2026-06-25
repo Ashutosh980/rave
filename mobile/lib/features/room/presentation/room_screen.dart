@@ -8,9 +8,10 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/providers/server_config_provider.dart';
 
 import '../../chat/presentation/chat_panel.dart';
-import '../../player/presentation/video_player_widget.dart';
+import '../../live_stream/providers/live_stream_provider.dart';
 import '../../player/providers/player_provider.dart';
 import '../providers/room_provider.dart';
+import 'room_video_area.dart';
 
 class RoomScreen extends ConsumerStatefulWidget {
   const RoomScreen({
@@ -29,6 +30,8 @@ class RoomScreen extends ConsumerStatefulWidget {
 }
 
 class _RoomScreenState extends ConsumerState<RoomScreen> {
+  String? _lastShownError;
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +92,8 @@ Server: $serverUrl
   }
 
   void _exitRoom() {
+    ref.read(liveStreamProvider.notifier).stopStream();
+    ref.invalidate(liveStreamProvider);
     ref.invalidate(playerControllerProvider);
     ref.read(roomSessionProvider.notifier).leaveRoom();
     if (mounted) {
@@ -96,10 +101,65 @@ Server: $serverUrl
     }
   }
 
+  Future<void> _showLiveStreamMenu() async {
+    final live = ref.read(liveStreamProvider);
+    if (live.isActive) {
+      await ref.read(liveStreamProvider.notifier).stopStream();
+      return;
+    }
+
+    final source = await showModalBottomSheet<LiveStreamSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.videocam),
+              title: const Text('Camera'),
+              onTap: () => Navigator.pop(context, LiveStreamSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.screen_share),
+              title: const Text('Screen share'),
+              onTap: () => Navigator.pop(context, LiveStreamSource.screen),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    try {
+      await ref.read(liveStreamProvider.notifier).startStream(source);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Live stream failed: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(roomSessionProvider);
     final room = session.roomState;
+
+    ref.listen<String?>(
+      roomSessionProvider.select((s) => s.error),
+      (prev, next) {
+        if (next == null || next == _lastShownError || !mounted) return;
+        _lastShownError = next;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      },
+    );
 
     return PopScope(
       canPop: false,
@@ -115,7 +175,19 @@ Server: $serverUrl
               onPressed: _shareInvite,
               tooltip: 'Share room invite',
             ),
-            if (room?.isHost == true)
+            if (room?.isHost == true) ...[
+              IconButton(
+                icon: Icon(
+                  ref.watch(liveStreamProvider).isActive
+                      ? Icons.stop_circle_outlined
+                      : Icons.videocam,
+                  color: ref.watch(liveStreamProvider).isActive ? Colors.red : null,
+                ),
+                onPressed: _showLiveStreamMenu,
+                tooltip: ref.watch(liveStreamProvider).isActive
+                    ? 'Stop live stream'
+                    : 'Start live stream',
+              ),
               IconButton(
                 icon: session.isUploading
                     ? const SizedBox(
@@ -127,6 +199,7 @@ Server: $serverUrl
                 onPressed: session.isUploading ? null : _pickAndUploadVideo,
                 tooltip: 'Upload video',
               ),
+            ],
             IconButton(
               icon: const Icon(Icons.exit_to_app),
               onPressed: _exitRoom,
@@ -139,6 +212,19 @@ Server: $serverUrl
                 ? const Center(child: Text('Not connected'))
                 : Column(
                     children: [
+                      if (session.error != null)
+                        MaterialBanner(
+                          content: Text(session.error!),
+                          backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                ref.read(roomSessionProvider.notifier).clearError();
+                              },
+                              child: const Text('Dismiss'),
+                            ),
+                          ],
+                        ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                         child: Row(
@@ -161,7 +247,7 @@ Server: $serverUrl
                       ),
                       const Expanded(
                         flex: 3,
-                        child: VideoPlayerWidget(),
+                        child: RoomVideoArea(),
                       ),
                       const Expanded(
                         flex: 2,

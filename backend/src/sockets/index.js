@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const { registerSocketHandlers } = require('./roomHandlers');
 const { registerSyncHandlers } = require('./syncHandlers');
+const { registerWebRtcHandlers } = require('./webrtcHandlers');
 const { setIo } = require('./io');
 
 /**
@@ -23,8 +24,7 @@ function initSockets(httpServer) {
   io.on('connection', (socket) => {
     registerSocketHandlers(io, socket);
     registerSyncHandlers(io, socket);
-
-    // TODO Phase 2: WebRTC signaling events (offer, answer, ice-candidate)
+    registerWebRtcHandlers(io, socket);
   });
 
   return io;

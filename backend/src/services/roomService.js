@@ -44,6 +44,7 @@ function createRoom(hostUsername) {
     playbackState: createDefaultPlaybackState(),
     chatMessages: [],
     createdAt: Date.now(),
+    liveStream: { active: false, source: null },
   };
 
   rooms.set(roomId, room);
@@ -107,17 +108,22 @@ function leaveRoom(roomId, participantId) {
   if (room.participants.size === 0) {
     rooms.delete(id);
     persist();
-    return { room: null, participant, roomDeleted: true };
+    return { room: null, participant, roomDeleted: true, hostChanged: false };
   }
 
+  let hostChanged = false;
   if (participantId === room.hostId) {
     const nextHost = room.participants.values().next().value;
     room.hostId = nextHost.id;
     room.hostUsername = nextHost.username;
+    hostChanged = true;
+    if (room.liveStream?.active) {
+      room.liveStream = { active: false, source: null };
+    }
   }
 
   persist();
-  return { room, participant, roomDeleted: false };
+  return { room, participant, roomDeleted: false, hostChanged };
 }
 
 /** Mark participant offline on socket disconnect — room is kept alive. */
@@ -184,6 +190,19 @@ function addChatMessage(roomId, username, content) {
   return message;
 }
 
+function setLiveStream(roomId, active, source = null) {
+  const id = normalizeRoomId(roomId);
+  const room = rooms.get(id);
+  if (!room) return null;
+  room.liveStream = { active, source: active ? source : null };
+  persist();
+  return room.liveStream;
+}
+
+function getLiveStream(room) {
+  return room.liveStream ?? { active: false, source: null };
+}
+
 /** Serializes room for API / socket responses (no internal maps). */
 function serializeRoom(room, participantId) {
   const connected = Array.from(room.participants.values()).filter((p) => p.socketId);
@@ -204,6 +223,7 @@ function serializeRoom(room, participantId) {
     playbackState: { ...room.playbackState },
     chatMessages: [...room.chatMessages],
     createdAt: room.createdAt,
+    liveStream: getLiveStream(room),
   };
 }
 
@@ -233,4 +253,6 @@ module.exports = {
   serializeRoomPublic,
   countConnected,
   normalizeRoomId,
+  setLiveStream,
+  getLiveStream,
 };

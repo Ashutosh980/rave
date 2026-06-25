@@ -105,6 +105,44 @@ class SocketService {
     emit(SocketEvents.syncRate, {'rate': rate, 'time': time});
   }
 
+  void liveStreamStart({required String source}) {
+    emit(SocketEvents.liveStreamStart, {'source': source});
+  }
+
+  void liveStreamStop() {
+    emit(SocketEvents.liveStreamStop, {});
+  }
+
+  void sendWebRtcOffer({
+    required String toParticipantId,
+    required Map<String, dynamic> sdp,
+  }) {
+    emit(SocketEvents.webrtcOffer, {
+      'toParticipantId': toParticipantId,
+      'sdp': sdp,
+    });
+  }
+
+  void sendWebRtcAnswer({
+    required String toParticipantId,
+    required Map<String, dynamic> sdp,
+  }) {
+    emit(SocketEvents.webrtcAnswer, {
+      'toParticipantId': toParticipantId,
+      'sdp': sdp,
+    });
+  }
+
+  void sendWebRtcIceCandidate({
+    required String toParticipantId,
+    required Map<String, dynamic> candidate,
+  }) {
+    emit(SocketEvents.webrtcIceCandidate, {
+      'toParticipantId': toParticipantId,
+      'candidate': candidate,
+    });
+  }
+
   Future<Map<String, dynamic>> _emitWithAck(
     String event,
     Map<String, dynamic> data,

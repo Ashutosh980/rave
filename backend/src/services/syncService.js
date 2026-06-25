@@ -1,4 +1,5 @@
-const { getRoom } = require('./roomService');
+const { getRoom, rooms } = require('./roomService');
+const { saveRoomsToDisk } = require('./roomPersistence');
 
 /**
  * Computes authoritative playback position accounting for elapsed time while playing.
@@ -48,6 +49,8 @@ function applySyncEvent(roomId, eventType, payload) {
   }
 
   state.updatedAt = now;
+
+  saveRoomsToDisk(rooms);
 
   return {
     playbackState: { ...state },

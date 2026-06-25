@@ -125,7 +125,16 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
       // Verify room still exists on server before large upload
       await _api.getRoom(roomId);
 
-      final upload = await _api.uploadVideo(roomId, file);
+      final participantId = state.participantId;
+      if (participantId == null) {
+        throw StateError('Not connected to room');
+      }
+
+      final upload = await _api.uploadVideo(
+        roomId,
+        file,
+        participantId: participantId,
+      );
       final resolved = _api.resolveVideoUrl(upload.videoUrl);
 
       state = state.copyWith(
@@ -149,6 +158,12 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
     _socket.sendChatMessage(content);
   }
 
+  void clearError() {
+    if (state.error != null) {
+      state = state.copyWith(clearError: true);
+    }
+  }
+
   void leaveRoom() {
     final roomId = state.roomState?.roomId;
     if (roomId != null) {
@@ -168,6 +183,7 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
     _socket.on(SocketEvents.participantLeft, _onParticipantLeft);
     _socket.on(SocketEvents.participantOffline, _onParticipantOffline);
     _socket.on(SocketEvents.participantReconnected, _onParticipantReconnected);
+    _socket.on(SocketEvents.hostChanged, _onHostChanged);
     _socket.on(SocketEvents.playbackUpdate, _onPlaybackUpdate);
     _socket.on(SocketEvents.chatMessage, _onChatMessage);
     _socket.on(SocketEvents.videoReady, _onVideoReady);
@@ -182,6 +198,7 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
     _socket.off(SocketEvents.participantOffline);
     _socket.off(SocketEvents.participantJoined);
     _socket.off(SocketEvents.participantReconnected);
+    _socket.off(SocketEvents.hostChanged);
     _socket.off(SocketEvents.playbackUpdate);
     _socket.off(SocketEvents.chatMessage);
     _socket.off(SocketEvents.videoReady);
@@ -300,6 +317,22 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
       roomState: state.roomState!.copyWith(
         participants: participants,
         participantCount: count,
+      ),
+    );
+  }
+
+  void _onHostChanged(dynamic data) {
+    if (data is! Map || state.roomState == null) return;
+    final newHostId = data['hostId'] as String?;
+    final newHostUsername = data['hostUsername'] as String?;
+    if (newHostId == null) return;
+
+    final myId = state.participantId;
+    state = state.copyWith(
+      roomState: state.roomState!.copyWith(
+        hostId: newHostId,
+        hostUsername: newHostUsername ?? state.roomState!.hostUsername,
+        isHost: myId != null && myId == newHostId,
       ),
     );
   }
