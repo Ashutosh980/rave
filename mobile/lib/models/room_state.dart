@@ -9,6 +9,7 @@ class RoomState {
     required this.hostUsername,
     required this.hasVideo,
     required this.videoUrl,
+    required this.videoVersion,
     required this.participantCount,
     required this.isHost,
     required this.participants,
@@ -22,6 +23,7 @@ class RoomState {
   final String hostUsername;
   final bool hasVideo;
   final String? videoUrl;
+  final int videoVersion;
   final int participantCount;
   final bool isHost;
   final List<Participant> participants;
@@ -36,6 +38,7 @@ class RoomState {
       hostUsername: json['hostUsername'] as String,
       hasVideo: json['hasVideo'] as bool? ?? false,
       videoUrl: json['videoUrl'] as String?,
+      videoVersion: json['videoVersion'] as int? ?? 0,
       participantCount: json['participantCount'] as int? ?? 0,
       isHost: json['isHost'] as bool? ?? false,
       participants: (json['participants'] as List<dynamic>? ?? [])
@@ -54,6 +57,7 @@ class RoomState {
   RoomState copyWith({
     bool? hasVideo,
     String? videoUrl,
+    int? videoVersion,
     int? participantCount,
     List<Participant>? participants,
     PlaybackState? playbackState,
@@ -65,12 +69,35 @@ class RoomState {
       hostUsername: hostUsername,
       hasVideo: hasVideo ?? this.hasVideo,
       videoUrl: videoUrl ?? this.videoUrl,
+      videoVersion: videoVersion ?? this.videoVersion,
       participantCount: participantCount ?? this.participantCount,
       isHost: isHost,
       participants: participants ?? this.participants,
       playbackState: playbackState ?? this.playbackState,
       chatMessages: chatMessages ?? this.chatMessages,
       createdAt: createdAt,
+    );
+  }
+}
+
+class UploadVideoResponse {
+  const UploadVideoResponse({
+    required this.videoUrl,
+    required this.videoVersion,
+    required this.playbackState,
+  });
+
+  final String videoUrl;
+  final int videoVersion;
+  final PlaybackState playbackState;
+
+  factory UploadVideoResponse.fromJson(Map<String, dynamic> json) {
+    return UploadVideoResponse(
+      videoUrl: json['videoUrl'] as String,
+      videoVersion: json['videoVersion'] as int? ?? 0,
+      playbackState: PlaybackState.fromJson(
+        json['playbackState'] as Map<String, dynamic>? ?? {},
+      ),
     );
   }
 }

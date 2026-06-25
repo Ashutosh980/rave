@@ -61,6 +61,7 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
   final ApiService _api;
   final SocketService _socket;
   bool _listenersRegistered = false;
+  bool _hasJoinedOnce = false;
 
   Future<CreateRoomResponse> createRoom(String username) async {
     return _api.createRoom(username);
@@ -95,7 +96,7 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
         throw SocketException('Failed to join room');
       }
 
-      final roomState = RoomState.fromJson(roomStateJson);
+      final roomState = _roomStateFromJson(roomStateJson);
 
       state = state.copyWith(
         roomState: roomState,
@@ -104,6 +105,7 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
         isConnecting: false,
         clearError: true,
       );
+      _hasJoinedOnce = true;
     } catch (e) {
       state = state.copyWith(
         isConnecting: false,
@@ -123,14 +125,16 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
       // Verify room still exists on server before large upload
       await _api.getRoom(roomId);
 
-      final videoUrl = await _api.uploadVideo(roomId, file);
-      final resolved = _api.resolveVideoUrl(videoUrl);
+      final upload = await _api.uploadVideo(roomId, file);
+      final resolved = _api.resolveVideoUrl(upload.videoUrl);
 
       state = state.copyWith(
         isUploading: false,
         roomState: state.roomState?.copyWith(
           hasVideo: true,
           videoUrl: resolved,
+          videoVersion: upload.videoVersion,
+          playbackState: upload.playbackState,
         ),
       );
 
@@ -151,6 +155,7 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
       _socket.leaveRoom(roomId);
     }
     _teardownListeners();
+    _hasJoinedOnce = false;
     state = const RoomSessionState();
   }
 
@@ -167,6 +172,7 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
     _socket.on(SocketEvents.chatMessage, _onChatMessage);
     _socket.on(SocketEvents.videoReady, _onVideoReady);
     _socket.on(SocketEvents.error, _onSocketError);
+    _socket.onReconnect((_) => _onSocketReconnect());
   }
 
   void _teardownListeners() {
@@ -180,12 +186,54 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
     _socket.off(SocketEvents.chatMessage);
     _socket.off(SocketEvents.videoReady);
     _socket.off(SocketEvents.error);
+    _socket.offReconnect();
     _listenersRegistered = false;
+  }
+
+  Future<void> _onSocketReconnect() async {
+    final roomId = state.roomState?.roomId;
+    final username = state.username;
+    final participantId = state.participantId;
+    if (!_hasJoinedOnce || roomId == null || username == null || participantId == null) {
+      return;
+    }
+
+    try {
+      final ack = await _socket.joinRoom(
+        roomId: roomId,
+        username: username,
+        participantId: participantId,
+      );
+
+      final roomStateJson = ack['roomState'] as Map<String, dynamic>?;
+      if (roomStateJson == null) return;
+
+      var roomState = _roomStateFromJson(roomStateJson);
+
+      state = state.copyWith(
+        roomState: roomState,
+        participantId: ack['participantId'] as String? ?? participantId,
+        messages: roomState.chatMessages,
+        clearError: true,
+      );
+    } catch (e) {
+      state = state.copyWith(error: 'Reconnect failed: $e');
+    }
+  }
+
+  RoomState _roomStateFromJson(Map<String, dynamic> json) {
+    var roomState = RoomState.fromJson(json);
+    if (roomState.videoUrl != null) {
+      roomState = roomState.copyWith(
+        videoUrl: _api.resolveVideoUrl(roomState.videoUrl),
+      );
+    }
+    return roomState;
   }
 
   void _onRoomState(dynamic data) {
     if (data is! Map) return;
-    final roomState = RoomState.fromJson(Map<String, dynamic>.from(data));
+    final roomState = _roomStateFromJson(Map<String, dynamic>.from(data));
     state = state.copyWith(roomState: roomState, messages: roomState.chatMessages);
   }
 
@@ -278,14 +326,23 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
     if (relativeUrl == null) return;
 
     final resolved = _api.resolveVideoUrl(relativeUrl);
-    if (state.roomState!.hasVideo && state.roomState!.videoUrl == resolved) {
+    final version = data['videoVersion'] as int? ?? 0;
+    final playbackJson = data['playbackState'];
+
+    if (state.roomState!.videoVersion == version && version > 0) {
       return;
     }
+
+    final playback = playbackJson is Map
+        ? PlaybackState.fromJson(Map<String, dynamic>.from(playbackJson))
+        : PlaybackState.initial();
 
     state = state.copyWith(
       roomState: state.roomState!.copyWith(
         hasVideo: data['hasVideo'] as bool? ?? true,
         videoUrl: resolved,
+        videoVersion: version,
+        playbackState: playback,
       ),
     );
   }

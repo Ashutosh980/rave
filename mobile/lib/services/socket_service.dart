@@ -42,8 +42,16 @@ class SocketService {
     _socket?.on(event, handler);
   }
 
+  void onReconnect(SocketCallback handler) {
+    _socket?.on('reconnect', handler);
+  }
+
   void off(String event) {
     _socket?.off(event);
+  }
+
+  void offReconnect() {
+    _socket?.off('reconnect');
   }
 
   void emit(String event, dynamic data, [void Function(dynamic)? ack]) {

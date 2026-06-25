@@ -50,7 +50,7 @@ class ApiService {
     throw _parseError(response);
   }
 
-  Future<String> uploadVideo(String roomId, File videoFile) async {
+  Future<UploadVideoResponse> uploadVideo(String roomId, File videoFile) async {
     final request = http.MultipartRequest(
       'POST',
       _uri('/api/rooms/$roomId/video'),
@@ -63,8 +63,9 @@ class ApiService {
     final response = await http.Response.fromStream(streamed);
 
     if (response.statusCode == 201) {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      return body['videoUrl'] as String;
+      return UploadVideoResponse.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
     }
 
     throw _parseError(response);
@@ -74,6 +75,15 @@ class ApiService {
     if (relativePath == null) return '';
     if (relativePath.startsWith('http')) return relativePath;
     return '$baseUrl$relativePath';
+  }
+
+  String videoUrlWithVersion(String url, int version) {
+    if (version <= 0) return url;
+    final uri = Uri.parse(url);
+    return uri.replace(queryParameters: {
+      ...uri.queryParameters,
+      'v': version.toString(),
+    }).toString();
   }
 
   ApiException _parseError(http.Response response) {

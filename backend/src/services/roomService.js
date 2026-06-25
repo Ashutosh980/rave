@@ -39,6 +39,7 @@ function createRoom(hostUsername) {
     hostId,
     hostUsername: hostParticipant.username,
     videoFilename: null,
+    videoVersion: 0,
     participants: new Map([[hostId, hostParticipant]]),
     playbackState: createDefaultPlaybackState(),
     chatMessages: [],
@@ -151,6 +152,8 @@ function setRoomVideo(roomId, filename) {
   const room = rooms.get(id);
   if (!room) return null;
   room.videoFilename = filename;
+  room.videoVersion = Date.now();
+  room.playbackState = createDefaultPlaybackState();
   persist();
   return room;
 }
@@ -190,6 +193,7 @@ function serializeRoom(room, participantId) {
     hostUsername: room.hostUsername,
     hasVideo: Boolean(room.videoFilename),
     videoUrl: room.videoFilename ? `/api/videos/${room.id}` : null,
+    videoVersion: room.videoVersion ?? 0,
     participantCount: connected.length,
     isHost: participantId === room.hostId,
     participants: connected.map((p) => ({

@@ -9,6 +9,7 @@ import '../../../core/providers/server_config_provider.dart';
 
 import '../../chat/presentation/chat_panel.dart';
 import '../../player/presentation/video_player_widget.dart';
+import '../../player/providers/player_provider.dart';
 import '../providers/room_provider.dart';
 
 class RoomScreen extends ConsumerStatefulWidget {
@@ -87,10 +88,12 @@ Server: $serverUrl
     await SharePlus.instance.share(ShareParams(text: text, subject: 'Join Rave room ${widget.roomId}'));
   }
 
-  @override
-  void dispose() {
+  void _exitRoom() {
+    ref.invalidate(playerControllerProvider);
     ref.read(roomSessionProvider.notifier).leaveRoom();
-    super.dispose();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -98,69 +101,75 @@ Server: $serverUrl
     final session = ref.watch(roomSessionProvider);
     final room = session.roomState;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Room ${widget.roomId}'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: _shareInvite,
-            tooltip: 'Share room invite',
-          ),
-          if (room?.isHost == true)
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _exitRoom();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Room ${widget.roomId}'),
+          actions: [
             IconButton(
-              icon: session.isUploading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.upload_file),
-              onPressed: session.isUploading ? null : _pickAndUploadVideo,
-              tooltip: 'Upload video',
+              icon: const Icon(Icons.share),
+              onPressed: _shareInvite,
+              tooltip: 'Share room invite',
             ),
-          IconButton(
-            icon: const Icon(Icons.exit_to_app),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
-      body: session.isConnecting
-          ? const Center(child: CircularProgressIndicator())
-          : room == null
-              ? const Center(child: Text('Not connected'))
-              : Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.people,
-                            size: 18,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text('${room.participantCount} watching'),
-                          const Spacer(),
-                          if (room.isHost)
-                            const Chip(
-                              label: Text('Host'),
-                              visualDensity: VisualDensity.compact,
+            if (room?.isHost == true)
+              IconButton(
+                icon: session.isUploading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.upload_file),
+                onPressed: session.isUploading ? null : _pickAndUploadVideo,
+                tooltip: 'Upload video',
+              ),
+            IconButton(
+              icon: const Icon(Icons.exit_to_app),
+              onPressed: _exitRoom,
+            ),
+          ],
+        ),
+        body: session.isConnecting
+            ? const Center(child: CircularProgressIndicator())
+            : room == null
+                ? const Center(child: Text('Not connected'))
+                : Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.people,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
-                        ],
+                            const SizedBox(width: 6),
+                            Text('${room.participantCount} watching'),
+                            const Spacer(),
+                            if (room.isHost)
+                              const Chip(
+                                label: Text('Host'),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const Expanded(
-                      flex: 3,
-                      child: VideoPlayerWidget(),
-                    ),
-                    const Expanded(
-                      flex: 2,
-                      child: ChatPanel(),
-                    ),
-                  ],
-                ),
+                      const Expanded(
+                        flex: 3,
+                        child: VideoPlayerWidget(),
+                      ),
+                      const Expanded(
+                        flex: 2,
+                        child: ChatPanel(),
+                      ),
+                    ],
+                  ),
+      ),
     );
   }
 }

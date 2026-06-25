@@ -11,9 +11,14 @@ function broadcastVideoReady(roomId) {
   const io = getIo();
   if (!io) return;
 
+  const room = getRoom(roomId);
+  if (!room) return;
+
   io.to(roomId).emit('video_ready', {
     videoUrl: `/api/videos/${roomId}`,
     hasVideo: true,
+    videoVersion: room.videoVersion ?? 0,
+    playbackState: { ...room.playbackState },
   });
 }
 
@@ -43,11 +48,14 @@ function uploadVideoHandler(req, res) {
 
   try {
     const result = saveVideo(room.id, req.file);
+    const updatedRoom = getRoom(room.id);
     broadcastVideoReady(room.id);
     return res.status(201).json({
       filename: result.filename,
       size: result.size,
       videoUrl: `/api/videos/${room.id}`,
+      videoVersion: updatedRoom?.videoVersion ?? 0,
+      playbackState: updatedRoom?.playbackState,
     });
   } catch (err) {
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);

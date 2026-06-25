@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../../../core/providers/app_providers.dart';
 import '../../../core/utils/time_utils.dart';
 import '../../../models/playback_state.dart';
+import '../../../models/room_state.dart';
 import '../../room/providers/room_provider.dart';
 import '../providers/player_provider.dart';
 import 'host_controls.dart';
@@ -24,19 +26,45 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget> {
 
   void _maybeLoadVideo() {
     final room = ref.read(roomSessionProvider).roomState;
-    final url = room?.videoUrl;
-    if (url != null && url.isNotEmpty) {
-      ref.read(playerControllerProvider.notifier).loadVideo(url);
+    final playUrl = _playUrl(room);
+    if (playUrl != null && playUrl.isNotEmpty) {
+      ref.read(playerControllerProvider.notifier).loadVideo(
+            playUrl,
+            videoVersion: room?.videoVersion ?? 0,
+          );
     }
+  }
+
+  String? _resolvedVideoUrl(String? url) {
+    if (url == null || url.isEmpty) return null;
+    return ref.read(apiServiceProvider).resolveVideoUrl(url);
+  }
+
+  String? _playUrl(RoomState? room) {
+    final base = _resolvedVideoUrl(room?.videoUrl);
+    if (base == null || base.isEmpty) return null;
+    return ref.read(apiServiceProvider).videoUrlWithVersion(
+          base,
+          room?.videoVersion ?? 0,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
     ref.listen(roomSessionProvider, (prev, next) {
-      final prevUrl = prev?.roomState?.videoUrl;
-      final nextUrl = next.roomState?.videoUrl;
-      if (nextUrl != null && nextUrl.isNotEmpty && nextUrl != prevUrl) {
-        ref.read(playerControllerProvider.notifier).loadVideo(nextUrl);
+      final prevRoom = prev?.roomState;
+      final nextRoom = next.roomState;
+      final prevVersion = prevRoom?.videoVersion ?? 0;
+      final nextVersion = nextRoom?.videoVersion ?? 0;
+      final playUrl = _playUrl(nextRoom);
+
+      if (playUrl != null &&
+          playUrl.isNotEmpty &&
+          (nextVersion != prevVersion || _playUrl(prevRoom) != playUrl)) {
+        ref.read(playerControllerProvider.notifier).loadVideo(
+              playUrl,
+              videoVersion: nextVersion,
+            );
       }
     });
 
@@ -64,14 +92,6 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget> {
       );
     }
 
-    if (playerState.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (playerState.error != null) {
-      return Center(child: Text('Player error: ${playerState.error}'));
-    }
-
     final notifier = ref.read(playerControllerProvider.notifier);
 
     return Padding(
@@ -81,9 +101,34 @@ class _VideoPlayerWidgetState extends ConsumerState<VideoPlayerWidget> {
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Video(
-                controller: notifier.videoController,
-                controls: NoVideoControls,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Video(
+                    controller: notifier.videoController,
+                    controls: NoVideoControls,
+                    fit: BoxFit.contain,
+                    fill: Colors.black,
+                  ),
+                  if (playerState.isLoading)
+                    const ColoredBox(
+                      color: Colors.black54,
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  if (playerState.error != null)
+                    ColoredBox(
+                      color: Colors.black87,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            'Player error: ${playerState.error}',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

@@ -127,6 +127,8 @@ function registerSocketHandlers(io, socket) {
     io.to(ctx.roomId).emit('video_ready', {
       videoUrl: `/api/videos/${room.id}`,
       hasVideo: true,
+      videoVersion: room.videoVersion ?? 0,
+      playbackState: { ...room.playbackState },
     });
   });
 

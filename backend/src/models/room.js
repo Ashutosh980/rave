@@ -24,6 +24,7 @@
  * @property {string} hostId
  * @property {string} hostUsername
  * @property {string|null} videoFilename
+ * @property {number} videoVersion
  * @property {Map<string, Participant>} participants
  * @property {PlaybackState} playbackState
  * @property {ChatMessage[]} chatMessages

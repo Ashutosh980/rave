@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/config/video_player_config.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../models/playback_state.dart';
 import '../../room/providers/room_provider.dart';
@@ -52,7 +53,10 @@ class PlayerControllerState {
 class PlayerControllerNotifier extends StateNotifier<PlayerControllerState> {
   PlayerControllerNotifier(this._ref) : super(const PlayerControllerState()) {
     _player = Player();
-    _videoController = VideoController(_player);
+    _videoController = VideoController(
+      _player,
+      configuration: videoControllerConfiguration,
+    );
     _subscriptions.add(_player.stream.position.listen((position) {
       if (!_applyingRemoteSync) {
         state = state.copyWith(position: position);
@@ -84,20 +88,46 @@ class PlayerControllerNotifier extends StateNotifier<PlayerControllerState> {
   Timer? _driftTimer;
   bool _applyingRemoteSync = false;
   String? _loadedUrl;
+  int _loadedVersion = 0;
+  int _loadGeneration = 0;
 
   Player get player => _player;
   VideoController get videoController => _videoController;
 
-  Future<void> loadVideo(String url) async {
-    if (_loadedUrl == url && state.isReady) return;
+  Future<void> loadVideo(String url, {required int videoVersion}) async {
+    if (_loadedUrl == url &&
+        _loadedVersion == videoVersion &&
+        videoVersion > 0 &&
+        state.isReady) {
+      return;
+    }
 
+    final generation = ++_loadGeneration;
     state = state.copyWith(isLoading: true, error: null);
+
     try {
+      await _player.pause();
       await _player.open(Media(url), play: false);
+      if (generation != _loadGeneration) return;
+
       _loadedUrl = url;
-      state = state.copyWith(isReady: true, isLoading: false);
+      _loadedVersion = videoVersion;
+      state = state.copyWith(
+        isReady: true,
+        isLoading: false,
+        position: Duration.zero,
+        isPlaying: false,
+      );
+
+      if (!_ref.read(isHostProvider)) {
+        final remote = _ref.read(playbackStateProvider);
+        if (remote != null) {
+          await _applyRemotePlayback(remote);
+        }
+      }
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      if (generation != _loadGeneration) return;
+      state = state.copyWith(isLoading: false, isReady: false, error: e.toString());
     }
   }
 
@@ -127,7 +157,7 @@ class PlayerControllerNotifier extends StateNotifier<PlayerControllerState> {
 
   Future<void> _applyRemotePlayback(PlaybackState remote) async {
     final isHost = _ref.read(isHostProvider);
-    if (isHost) return;
+    if (isHost || !state.isReady) return;
 
     _applyingRemoteSync = true;
     try {
@@ -135,7 +165,7 @@ class PlayerControllerNotifier extends StateNotifier<PlayerControllerState> {
       final localSec = _player.state.position.inMilliseconds / 1000.0;
       final driftMs = ((localSec - targetSec) * 1000).abs();
 
-      if (driftMs > AppConfig.driftThresholdMs || remote.updatedAt != state.position.inMilliseconds) {
+      if (driftMs > AppConfig.driftThresholdMs) {
         await _player.seek(
           Duration(milliseconds: (targetSec * 1000).round()),
         );
