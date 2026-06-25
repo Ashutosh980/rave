@@ -7,6 +7,7 @@ const {
   serializeRoom,
   getRoom,
   countConnected,
+  normalizeRoomId,
 } = require('../services/roomService');
 
 /** socketId -> { roomId, participantId, username } */
@@ -18,7 +19,8 @@ function getSocketContext(socket) {
 
 function registerSocketHandlers(io, socket) {
   socket.on('join_room', (payload, ack) => {
-    const { roomId, username, participantId } = payload || {};
+    const { roomId: rawRoomId, username, participantId } = payload || {};
+    const roomId = normalizeRoomId(rawRoomId);
 
     if (!roomId || !username) {
       const err = { code: 'VALIDATION_ERROR', message: 'roomId and username are required' };
@@ -59,6 +61,11 @@ function registerSocketHandlers(io, socket) {
       });
     } else {
       socket.to(roomId).emit('participant_reconnected', {
+        participant: {
+          id: participant.id,
+          username: participant.username,
+          joinedAt: participant.joinedAt,
+        },
         participantId: participant.id,
         participantCount: countConnected(room),
       });
@@ -71,7 +78,7 @@ function registerSocketHandlers(io, socket) {
 
   socket.on('leave_room', (payload) => {
     const ctx = getSocketContext(socket);
-    const roomId = payload?.roomId || ctx?.roomId;
+    const roomId = normalizeRoomId(payload?.roomId || ctx?.roomId);
     const participantId = ctx?.participantId;
 
     if (!roomId || !participantId) return;

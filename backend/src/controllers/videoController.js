@@ -5,6 +5,17 @@ const { MAX_VIDEO_SIZE_MB, VIDEO_STORAGE_DIR } = require('../config');
 const { getRoom } = require('../services/roomService');
 const { saveVideo, getVideoPath, getVideoStats } = require('../services/videoService');
 const { parseRangeHeader, streamRange } = require('../utils/rangeRequest');
+const { getIo } = require('../sockets/io');
+
+function broadcastVideoReady(roomId) {
+  const io = getIo();
+  if (!io) return;
+
+  io.to(roomId).emit('video_ready', {
+    videoUrl: `/api/videos/${roomId}`,
+    hasVideo: true,
+  });
+}
 
 const upload = multer({
   dest: VIDEO_STORAGE_DIR,
@@ -32,6 +43,7 @@ function uploadVideoHandler(req, res) {
 
   try {
     const result = saveVideo(room.id, req.file);
+    broadcastVideoReady(room.id);
     return res.status(201).json({
       filename: result.filename,
       size: result.size,

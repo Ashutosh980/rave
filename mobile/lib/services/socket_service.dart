@@ -62,7 +62,7 @@ class SocketService {
     return _emitWithAck(SocketEvents.joinRoom, {
       'roomId': roomId,
       'username': username,
-      if (participantId != null) 'participantId': participantId,
+      'participantId': ?participantId,
     });
   }
 
@@ -81,7 +81,7 @@ class SocketService {
   void syncPlay({required double time, double? rate}) {
     emit(SocketEvents.syncPlay, {
       'time': time,
-      if (rate != null) 'rate': rate,
+      'rate': ?rate,
     });
   }
 

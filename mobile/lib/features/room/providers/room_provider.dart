@@ -236,8 +236,23 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
     if (data is! Map || state.roomState == null) return;
     final count = data['participantCount'] as int?;
     if (count == null) return;
+
+    var participants = state.roomState!.participants;
+    final participantJson = data['participant'];
+    if (participantJson is Map) {
+      final participant = Participant.fromJson(
+        Map<String, dynamic>.from(participantJson),
+      );
+      if (!participants.any((p) => p.id == participant.id)) {
+        participants = [...participants, participant];
+      }
+    }
+
     state = state.copyWith(
-      roomState: state.roomState!.copyWith(participantCount: count),
+      roomState: state.roomState!.copyWith(
+        participants: participants,
+        participantCount: count,
+      ),
     );
   }
 
@@ -262,10 +277,15 @@ class RoomSessionNotifier extends StateNotifier<RoomSessionState> {
     final relativeUrl = data['videoUrl'] as String?;
     if (relativeUrl == null) return;
 
+    final resolved = _api.resolveVideoUrl(relativeUrl);
+    if (state.roomState!.hasVideo && state.roomState!.videoUrl == resolved) {
+      return;
+    }
+
     state = state.copyWith(
       roomState: state.roomState!.copyWith(
-        hasVideo: true,
-        videoUrl: _api.resolveVideoUrl(relativeUrl),
+        hasVideo: data['hasVideo'] as bool? ?? true,
+        videoUrl: resolved,
       ),
     );
   }

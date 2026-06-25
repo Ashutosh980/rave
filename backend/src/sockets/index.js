@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const { registerSocketHandlers } = require('./roomHandlers');
 const { registerSyncHandlers } = require('./syncHandlers');
+const { setIo } = require('./io');
 
 /**
  * Attaches Socket.IO to the HTTP server.
@@ -16,6 +17,8 @@ function initSockets(httpServer) {
     pingInterval: 10000,
     pingTimeout: 5000,
   });
+
+  setIo(io);
 
   io.on('connection', (socket) => {
     registerSocketHandlers(io, socket);
